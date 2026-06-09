@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 import requests
 
+from core.settings import get_setting
+
 
 MODEL_MOCK = "Mock 演示模型"
 MODEL_SILICONFLOW = "硅基流动 SiliconFlow"
@@ -15,15 +17,11 @@ MODEL_OPTIONS = [
 ]
 
 SILICONFLOW_MODEL_OPTIONS = [
-    "Qwen/Qwen2.5-72B-Instruct",
-    "Qwen/Qwen2.5-32B-Instruct",
+    "Qwen/Qwen2.5-7B-Instruct",
     "Qwen/Qwen2.5-14B-Instruct",
+    "Qwen/Qwen2.5-32B-Instruct",
     "deepseek-ai/DeepSeek-V3",
-    "deepseek-ai/DeepSeek-R1",
-    "Pro/deepseek-ai/DeepSeek-V3",
-    "Pro/deepseek-ai/DeepSeek-R1",
 ]
-
 
 @dataclass(frozen=True)
 class ModelConfig:
@@ -40,7 +38,7 @@ MODEL_CONFIGS = {
         base_url_env="SILICONFLOW_BASE_URL",
         default_base_url="https://api.siliconflow.cn/v1",
         model_env="SILICONFLOW_MODEL",
-        default_model="Qwen/Qwen2.5-72B-Instruct",
+        default_model="Qwen/Qwen2.5-7B-Instruct",
     ),
 }
 
@@ -53,9 +51,9 @@ def get_available_model(selected_model: str) -> str:
     if not config:
         return MODEL_MOCK
 
-    api_key = os.getenv(config.api_key_env, "").strip()
-    model = os.getenv(config.model_env, config.default_model).strip()
-    base_url = os.getenv(config.base_url_env, config.default_base_url).strip()
+    api_key = get_setting(config.api_key_env)
+    model = get_setting(config.model_env, config.default_model)
+    base_url = get_setting(config.base_url_env, config.default_base_url)
     if not api_key or not model or not base_url:
         return MODEL_MOCK
     return selected_model
@@ -69,18 +67,23 @@ def call_model(prompt: str, model_name: str, api_model: str | None = None) -> st
     if not config:
         return build_mock_response(prompt)
 
-    api_key = os.getenv(config.api_key_env, "").strip()
-    base_url = os.getenv(config.base_url_env, config.default_base_url).strip().rstrip("/")
-    model = (api_model or os.getenv(config.model_env, config.default_model)).strip()
+    api_key = get_setting(config.api_key_env)
+    base_url = get_setting(config.base_url_env, config.default_base_url).rstrip("/")
+    model = (api_model or get_setting(config.model_env, config.default_model)).strip()
     if not api_key or not base_url or not model:
         return build_mock_response(prompt)
 
-    return call_openai_compatible_api(
-        prompt=prompt,
-        api_key=api_key,
-        base_url=base_url,
-        model=model,
-    )
+    try:
+        return call_openai_compatible_api(
+            prompt=prompt,
+            api_key=api_key,
+            base_url=base_url,
+            model=model,
+        )
+    except requests.RequestException as exc:
+        return build_api_error_response(model_name=model_name, model=model, error=str(exc))
+    except (KeyError, IndexError, TypeError) as exc:
+        return build_api_error_response(model_name=model_name, model=model, error=f"响应格式异常：{exc}")
 
 
 def call_openai_compatible_api(prompt: str, api_key: str, base_url: str, model: str) -> str:
@@ -102,6 +105,28 @@ def call_openai_compatible_api(prompt: str, api_key: str, base_url: str, model: 
     response.raise_for_status()
     data = response.json()
     return data["choices"][0]["message"]["content"]
+
+
+def build_api_error_response(model_name: str, model: str, error: str) -> str:
+    return f"""# 模型调用失败
+
+## 问题说明
+当前选择的模型服务暂时无法返回批改结果。
+
+## 当前配置
+- 平台：{model_name}
+- 模型：{model}
+
+## 排查建议
+1. 检查 `SILICONFLOW_API_KEY` 是否已在 `.env` 或 Streamlit Secrets 中正确配置。
+2. 检查硅基流动账户余额、模型权限和模型 ID 是否可用。
+3. 如果只是演示项目，请切换到 `Mock 演示模型`。
+
+## 原始错误
+
+```text
+{error[:1000]}
+```"""
 
 
 def build_mock_response(prompt: str) -> str:

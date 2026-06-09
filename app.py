@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from datetime import datetime
 
 import streamlit as st
@@ -10,6 +9,7 @@ from core.file_reader import read_uploaded_file
 from core.grading_service import SUPPORTED_COURSES, SUPPORTED_MODES, grade_homework
 from core.model_client import MODEL_MOCK, MODEL_OPTIONS, SILICONFLOW_MODEL_OPTIONS, get_available_model
 from core.report_service import generate_learning_report
+from core.settings import get_setting
 
 
 load_dotenv()
@@ -50,8 +50,8 @@ def build_download_name(prefix: str) -> str:
 
 
 def get_public_agent_config() -> tuple[str, str]:
-    agent_name = os.getenv("PUBLIC_AGENT_NAME", "教师作业批改助手 Pro 在线 Agent").strip()
-    agent_url = os.getenv("PUBLIC_AGENT_URL", "").strip()
+    agent_name = get_setting("PUBLIC_AGENT_NAME", "教师作业批改助手 Pro 在线 Agent")
+    agent_url = get_setting("PUBLIC_AGENT_URL")
     return agent_name, agent_url
 
 

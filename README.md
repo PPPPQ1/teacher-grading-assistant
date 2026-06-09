@@ -126,6 +126,8 @@ PUBLIC_AGENT_NAME = "教师作业批改助手 Pro 在线 Agent"
 PUBLIC_AGENT_URL = "部署完成后得到的公网地址"
 ```
 
+本项目会同时读取 `.env` 和 Streamlit Secrets；本地开发用 `.env`，部署到 Streamlit Cloud 时建议使用 Secrets，不要把真实 API Key 提交到 GitHub。
+
 6. 部署成功后会得到类似下面的公网地址：
 
 ```text
